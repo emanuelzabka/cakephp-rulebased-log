@@ -128,7 +128,7 @@ class LoggerComponent extends Object {
 			$rule['name'] = $rule;
 			if ($this->stateMatch($rule['state'])) {
 				// Se não for exclusiva a regra adiciona a lista de regras, senão deve apenas adicionar a regra atual
-				if (!isset($rule['exclusive']) || $rule['exclusive']) {
+				if (!isset($rule['exclusive']) || !$rule['exclusive']) {
 					$result[] = $rule;
 				} else {
 					$result = array($rule);
