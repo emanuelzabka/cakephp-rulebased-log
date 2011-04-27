@@ -2,55 +2,44 @@
 
 /**
  * $Id$
- * Componente para a realização automática de logs com base a estados no controller
+ * Component for automatic logging in database depending on controller statuses
  * Exemplo de configurações:
-// Definição para os estados da regra
-'states' => array(
-	'module' => array('getModule'),
-	'controller' => 'name',
-	'action' => 'action',
-	'post' => array('isPost'),
-	'status' => 'getProccessResult',
-),
-// Ação de log
-'logAction' => 'logAction',
-// Regras para log
-'rules' => array(
-	'LOGIN' => array(
-		'state' => array(
-			'action' => 'login',
-			'controller' => 'Users',
-			'post' => true,
-			'exclusive' => false,
-			'status' => 'success'
-		),
-		'message' => 'login'
-	),
-	'ADD' => array(
-		'state' => array(
-			'action' => 'add',
-			'post' => true,
-			'status' => 'success'
-		),
-		'message' => 'add'
-	),
-	'EDIT' => array(
-		'state' => array(
-			'action' => 'edit',
-			'post' => true,
-			'status' => 'success'
-		),
-		'message' => 'edit'
-	),
-	'REMOVE' => array(
-		'state' => array(
-			'action' => 'remove',
-			'post' => true,
-			'status' => 'success'
-		),
-		'message' => 'remove'
-	),
-)
+ *   array(
+ *	'states' => array(
+ *		'controller' => 'name',
+ *		'action' => 'action',
+ *		'post' => array('isPost'),
+ *		'status' => 'getProccessResult',
+ *	),
+ *	// Action to log
+ *	'logAction' => 'logAction',
+ *	// Rules for logging
+ *	'rules' => array(
+ *		'ADD' => array(
+ *			'state' => array(
+ *				'action' => 'add',
+ *				'post' => true,
+ *				'status' => 'success'
+ *			),
+ *			'message' => 'add'
+ *		),
+ *		'EDIT' => array(
+ *			'state' => array(
+ *				'action' => 'edit',
+ *				'post' => true,
+ *				'status' => 'success'
+ *			),
+ *			'message' => 'edit'
+ *		),
+ *		'REMOVE' => array(
+ *			'state' => array(
+ *				'action' => 'remove',
+ *				'post' => true,
+ *				'status' => 'success'
+ *			),
+ *			'message' => 'remove'
+ *		),
+ *	)
  * 
  * @uses Object
  * @package Core
@@ -60,15 +49,14 @@
  * @modifiedby $Author$
  */
 class LoggerComponent extends Object {
-	/** Controller do componente */
+
 	public $controller = null;
-	/** Configurações do componente */
 	public $settings = array();
 
 	public function initialize($controller, $settings = array()) {
 		$this->controller = $controller;
 		$this->settings = $settings;
-		// Adiciona settings adicionais de possíveis controllers filhos
+		// Adds/Override aditional settings to the component
 		if (!empty($this->controller->logAdditionalSettings)) {
 			$this->settings = array_merge_recursive($this->settings, $this->controller->logAdditionalSettings);
 		}
@@ -87,13 +75,13 @@ class LoggerComponent extends Object {
 	}
 
 	/**
-	 * Verifica se o parâmetro de estado bate com o valor.
-	 * O parâmetro pode ser de dois 3 tipos.
-	 * - O parâmetro é o nome do atributo do controller que deve ser igual ao valor
-	 * - O parâmetro é um array contendo um método a ser chamado no controller para pegar o valor a ser comparado
-	 * - O parâmetro é um array onde o nome do método começa com '?', para este método será passado o valor e ele retornará se é verdadeiro ou não
-	 * @param mixed $param Parâmetro
-	 * @param mixed $value Valor sendo comparado
+	 * Verifies if the state matches with the value
+	 * There are 3 types of parameter:
+	 * - A string with the name of any attribute of the controller class
+	 * - An array with any method of the controller, so the returning value can be compared
+	 * - An array with any boolean method of the controller. This method must start with '?'
+	 * @param mixed $param Param
+	 * @param mixed $value Value being compared
 	 * @return boolean
 	 */
 	protected function matchStateParamValue($param, $value) {
@@ -110,29 +98,28 @@ class LoggerComponent extends Object {
 		} else {
 			$atr_val = null;
 			// Atributo no controller
-			eval('$atrval = $this->controller->'.$param.';');
+			$atrval = $this->controller->{$param};
 			$result = $atrval == $value;
 		}
 		return $result;
 	}
 
 	/**
-	 * Verifica se o state casa com o momento atual
+	 * Verifies if $stateData matches with controller data in the moment method is called.
 	 * @return boolean
 	 */
 	protected function stateMatch($stateData) {
-		$match = true;
 		foreach ($stateData as $state => $value) {
 			$match = $this->matchStateParamValue($this->settings['states'][$state], $value);
 			if (!$match) {
-				break;
+				return false;
 			}
 		}
-		return $match;
+		return true;
 	}
 
 	/**
-	 * Retorna as regras que casam com o estado atual
+	 * Returns the matched rules
 	 * @return array
 	 */
 	public function getMatchedRules() {
@@ -154,7 +141,7 @@ class LoggerComponent extends Object {
 	}
 
 	/**
-	 * Executa o log para a regra
+	 * Runs the log Action
 	 */
 	public function executeLog($rule) {
 		if (!empty($this->settings['logAction'])) {
@@ -164,26 +151,27 @@ class LoggerComponent extends Object {
 	}
 
 	/**
-	 * Executa o processo de log
+	 * Logs the matched rules
 	 */
 	public function run() {
 		$matched_rules = $this->getMatchedRules();
 		foreach ($matched_rules as $rule) {
-			// Executa o log
 			$this->executeLog($rule);
 		}
 	}
 
 	/**
 	 * Retorna os valores para a qual os wildcards das mensagens de log devem ser traduzidos 
-	 * Exemplo de saída:
+	 * Returns the values to which wildcards must be translated
+	 * Output example:
 	 * array(
-	 *   'name' => 'Userhost.description'
+	 *   'name' => 'User.name'
 	 * )
-	 * @param mixed $datum Linha de log
+	 * @param array $datum Log line
 	 * @return array
 	 */
 	public function getWildcards($datum) {
+		/** FIXME: we should change module term for "plugin" **/
 		$module = ucfirst(low($datum['Log']['module']));
 		// Array contendo o nome descritivo dos controllers do módulo
 		$objects = Configure::read('Log.objects.'.$module);
@@ -196,7 +184,7 @@ class LoggerComponent extends Object {
 			'What' => $what
 		);
 		
-		// Busca regras para o controller
+		// Looks for controller values
 		$module_wildcards = (array)Configure::read('Log.wildcards.'.$module);
 		$controller_wildcards = (array)@$module_wildcards[$datum['Log']['controller']];
 		foreach ($controller_wildcards as $wc => $wc_value) {
@@ -205,7 +193,7 @@ class LoggerComponent extends Object {
 			}
 		}
 		$values = (array)@$datum['Log']['data']['data'];
-		// Busca valores para All do Módulo
+		// Looks for values for plugin
 		if (empty($result['name'])) {
 			$modelClass = $datum['Log']['model_class'];
 			foreach ((array)@$module_wildcards['All'] as $wc_value) {
@@ -215,7 +203,7 @@ class LoggerComponent extends Object {
 				}
 			}
 		}
-		// Busca valores para All geral
+		// Looks for values for project
 		$wildcards_all = (array)Configure::read('Log.wildcards.All');
 		if (empty($result['name'])) {
 			$modelClass = $datum['Log']['model_class'];
@@ -230,21 +218,21 @@ class LoggerComponent extends Object {
 	}
 
 	/**
-	 * Traduz as mensagens de log e realiza as substituições das metatags/wildcards nas definições de log 
-	 * Leva em consideração arrays de configuração para tags a nível de controller, módulo e geral
-	 * Exemplo de arrays de configuração:
-	 * Configure::write('Log.wildcards.Core', array(
-	 * 	// Para controllers específicos
-	 * 	'Userhost' => array(
-	 * 		'name' => ':Userhost.description (:Userhost.address)'
+	 * Translates log messages and replaces metatags/wildcards with log definitions
+	 * Considers settings arrays for controller, plugin and project tags
+	 * Settings array usage example:
+	 * Configure::write('Log.wildcards.<Plugin name>', array(
+	 * 	// Controller specific wildcards
+	 * 	'User' => array(
+	 * 		'name' => ':User.name (:User.login)'
 	 * 	),
-	 * 	// Valores para tag :name nas mensagens de log, considerados conforme sua ordem. Ex: verifica Userhost.name, depois Userhost.description, ...
+	 *  // Values for :name tag in log messages, excep User in User controller which is overriden for the up example
 	 * 	'All' => array(
 	 * 		'name', 'description'
 	 * 	));
-	 * // O mesmo que o 'All' do módulo porém para todo o sistema, estes são considerados por último na decisão do valor para tag :name
+	 * Tags for the whole project can be set in Log.wildcards.All param
 	 * Configure::write('Log.wildcards.All', array('name', 'description'));
-	 * @param mixed $data Linhas de log
+	 * @param mixed $data Log messages
 	 * @return array
 	 */
 	public function parseMessages($data) {
